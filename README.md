@@ -112,8 +112,4 @@ Run all cells from top to bottom. A fixed random seed (42) gives the same data a
 - Test how sensitive the risk-band cut-offs are
 - Compare against a gradient boosting model
 
----
 
-## Author
-**Arjun** — M.Sc. Economics, IIT Roorkee
-[LinkedIn](https://www.linkedin.com/in/your-profile) · [Email](mailto:your-email@example.com)
