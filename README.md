@@ -10,26 +10,26 @@ An end-to-end **credit application scorecard** built in Python. Every loan appli
 
 | Metric | Development | Validation (out-of-time) |
 |---|---|---|
-| AUC | 0.7355 | 0.7271 |
-| Gini | 0.4709 | 0.4542 |
-| KS | 0.3529 | 0.3448 |
-| Avg predicted PD vs actual default rate | 12.06% vs 12.06% | 12.08% vs 12.20% |
-| Score PSI (dev vs validation) | — | 0.0002 (stable) |
+| AUC | 0.7356 | 0.7335 |
+| Gini | 0.4712 | 0.4670 |
+| KS | 0.3492 | 0.3501 |
+| Avg predicted PD vs actual default rate | 11.94% vs 11.94% | 11.96% vs 11.98% |
+| Score PSI (dev vs validation) | — | 0.0001 (stable) |
 | CSI (all 9 model variables) | — | below 0.001 (stable) |
 
-- Discrimination drops only slightly from development to validation, so there is no sign of overfitting.
+- Discrimination is almost unchanged from development to validation (AUC 0.7356 vs 0.7335, KS slightly higher on validation), so there is no sign of overfitting.
 - Predicted PD matches the actual default rate on average and across risk bands.
-- Default rate falls steadily from the riskiest to the safest band. The riskiest band defaults about **8x more often** than the safest:
+- Default rate falls steadily from the riskiest to the safest band. The riskiest band defaults about **8.6x more often** than the safest:
 
 | Risk band | Actual default rate (validation) |
 |---|---|
-| E – Very High Risk | 28.1% |
-| D – High Risk | 14.9% |
-| C – Medium Risk | 8.8% |
-| B – Low Risk | 6.3% |
-| A – Very Low Risk | 3.5% |
+| E – Very High Risk | 28.4% |
+| D – High Risk | 14.4% |
+| C – Medium Risk | 9.2% |
+| B – Low Risk | 5.7% |
+| A – Very Low Risk | 3.3% |
 
-- **Lift:** the riskiest 10% of customers default at **2.85x** the average rate and contain 28.5% of all defaults. The riskiest 30% contain **59.7%** of all defaults.
+- **Lift:** the riskiest 10% of customers default at **2.83x** the average rate and contain 28.3% of all defaults. The riskiest 30% contain **59.9%** of all defaults.
 
 ![Risk bands](images/risk_bands.png)
 ![ROC curve](images/roc_curve.png)
@@ -41,10 +41,10 @@ An end-to-end **credit application scorecard** built in Python. Every loan appli
 
 | Step | What I did |
 |---|---|
-| 1. Data | Simulated 75,000 loans (INR) with a hidden risk factor so utilisation, enquiries and missed payments move together. Intercept calibrated to a ~12% default rate (actual: 11.88%) |
+| 1. Data | Simulated 75,000 loans (INR) with a hidden risk factor so utilisation, enquiries and missed payments move together. Intercept calibrated to a ~12% default rate (actual: 11.95%) |
 | 2. Messiness | Added missing values, 15 duplicate rows and inconsistent labels to practise cleaning |
 | 3. Quality checks & EDA | Missing values, duplicates, logic checks, default-rate trend by month, default rate by variable bucket, correlation matrix |
-| 4. Out-of-time split | Development: applications before Apr 2024 (46,990 rows). Validation: Apr 2024 onwards (28,010 rows) |
+| 4. Out-of-time split | Development: applications before Apr 2024 (46,908 rows). Validation: Apr 2024 onwards (28,092 rows) |
 | 5. Cleaning | Median/mode fill and 1st–99th percentile capping, **fitted on development only** and applied to validation (no leakage) |
 | 6. WoE & IV | Quintile binning for numeric variables, raw values for text or few-value variables; WoE and IV for all 27 candidates |
 | 7. Variable selection | IV filter → correlation pruning → VIF check → backward elimination (see below) |
@@ -56,22 +56,22 @@ An end-to-end **credit application scorecard** built in Python. Every loan appli
 
 | Step | Rule | Result |
 |---|---|---|
-| IV filter | Keep IV between 0.02 and 0.5 | 11 variables left |
-| Correlation pruning | Drop the lower-IV variable of any pair with correlation above 0.7 | `term_months` dropped, 10 left |
-| VIF check | Remove the highest-VIF variable while any VIF is above 5 | Highest VIF was 2.89, nothing removed |
-| Backward elimination | Remove one variable at a time for a wrong-sign coefficient, then for p-value above 0.05 | `existing_emi` dropped (wrong sign), 9 left, all p-values below 0.001 |
+| IV filter | Keep IV between 0.02 and 0.5 | 12 variables left |
+| Correlation pruning | Drop the lower-IV variable of any pair with correlation above 0.7 | `term_months` dropped, 11 left |
+| VIF check | Remove the highest-VIF variable while any VIF is above 5 | Highest VIF was 3.54, nothing removed |
+| Backward elimination | Remove one variable at a time for a wrong-sign coefficient, then for p-value above 0.05 | `existing_emi` dropped (wrong sign), then `emi` dropped (p-value = 0.71), 9 left, all p-values below 0.001 |
 
 ### Final model (9 variables)
-`credit_utilisation`, `emi_to_income`, `enquiries_12m`, `dpd30_12m`, `debt_to_income`, `emi`, `dpd90_12m`, `income_verified`, `interest_rate`
+`credit_utilisation`, `emi_to_income`, `enquiries_12m`, `dpd30_12m`, `debt_to_income`, `dpd90_12m`, `interest_rate`, `income_verified`, `prior_default`
 
-- Strongest variable by IV: **credit utilisation (IV = 0.256)**. Customers in the highest-utilisation quintile default at 22.7%, against 6.9% in the lowest.
+- Strongest variable by IV: **credit utilisation (IV = 0.252)**. Customers in the highest-utilisation quintile default at 22.0%, against 6.4% in the lowest.
 - All coefficients are negative, which is the expected direction because WoE is higher for safer customers.
 
 ### Score scaling
 - Base score = **600** at good:bad odds of **50:1**
 - **PDO = 20** (every 20 points doubles the odds of being good)
 - Factor = PDO / ln(2) = 28.854, Offset = 487.123
-- Higher score = safer customer. Score range on development data: 388 to 603
+- Higher score = safer customer. Score range on development data: 428 to 607
 
 ---
 
@@ -94,7 +94,7 @@ cd pd-scorecard-unsecured-loans
 pip install -r requirements.txt
 jupyter notebook PD_Scorecard_Final.ipynb
 ```
-Run all cells from top to bottom. A fixed random seed (42) gives the same data and results every time.
+Run all cells from top to bottom. A fixed random seed (100) gives the same data and results every time.
 
 **Tools:** Python, pandas, NumPy, statsmodels, scikit-learn, Matplotlib
 
@@ -111,5 +111,3 @@ Run all cells from top to bottom. A fixed random seed (42) gives the same data a
 - Coarse-classing with monotonic bins
 - Test how sensitive the risk-band cut-offs are
 - Compare against a gradient boosting model
-
-
